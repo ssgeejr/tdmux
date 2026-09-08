@@ -299,6 +299,7 @@ Divers remain responsible for independently validating their gas plan before ent
 TDM should maintain separation between major functional areas:
 
 ```text
+Authentication / User Accounts
 Diver Management
 Equipment / Cylinder Database
 Dive Kit Management
@@ -316,6 +317,16 @@ Reporting / Export
 Calculation modules should not depend upon UI components.
 
 This allows calculations to be independently tested and eventually reused by different interfaces.
+
+### User Accounts
+
+TDM is intended to run online and will include user login.
+
+The long-term authentication objective is passkeys/WebAuthn. For Phase I, username/password login is acceptable, with email address as the username.
+
+User profiles should collect first name, last name, and optional preferred name. Phone number is optional and may support future security workflows. Physical address is not collected.
+
+When showing a user's name, TDM should use preferred name when it is present; otherwise it should use first name.
 
 ---
 

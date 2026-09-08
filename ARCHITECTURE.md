@@ -72,6 +72,7 @@ Use a **modular monolith**.
 Do not introduce microservices unless a future requirement clearly justifies them.
 
 Primary boundaries:
+- Authentication and user accounts
 - Domain model
 - Gas physics
 - Gas-management strategies
@@ -186,6 +187,7 @@ Forbidden:
 The domain layer defines the vocabulary and safety-critical types used throughout TDM.
 
 Initial entities include:
+- User account
 - Diver
 - Certification / qualification data
 - Cylinder
@@ -215,7 +217,37 @@ Examples:
 
 Invalid states should be difficult to construct.
 
-## 9. Units
+## 9. User Accounts and Authentication
+
+TDM will be an online application and must include user accounts.
+
+Long-term authentication objective:
+- Passkeys/WebAuthn are the preferred future authentication model.
+
+Phase I authentication:
+- Username/password authentication is acceptable for getting the application online.
+- The username is the user's email address.
+- Passwords must never be stored in plaintext.
+- Password hashing must use a modern, dedicated password-hashing algorithm.
+- Authentication implementation must be isolated from MUX calculation logic.
+
+User profile fields:
+- Email address / username: required
+- First name: required
+- Last name: required
+- Preferred name: optional
+- Phone number: optional
+- Address: not collected
+
+Display-name behavior:
+- If preferred name is present and not blank, display the preferred name.
+- Otherwise, display the first name.
+
+The phone number is intentionally optional in Phase I but should be modeled so it can support future security workflows such as account recovery, step-up verification, alerts, or administrative contact processes.
+
+Do not add address collection unless a future product requirement explicitly justifies it.
+
+## 10. Units
 
 Units must always be explicit.
 
@@ -239,7 +271,7 @@ Conversions must be centralized, deterministic, and tested.
 
 No rounding inside safety-critical calculations. Round only for presentation.
 
-## 10. Cylinder and Gas Modeling
+## 11. Cylinder and Gas Modeling
 
 TDM must compare unlike cylinder systems using gas volume, never PSI alone.
 
@@ -255,7 +287,7 @@ Do not silently infer missing cylinder specifications.
 
 Invalid, incomplete, or internally inconsistent cylinder configurations must be rejected.
 
-## 11. Gas Physics Engine
+## 12. Gas Physics Engine
 
 `tdm-physics` owns physical gas calculations and unit-safe conversions.
 
@@ -272,7 +304,7 @@ The physics engine must not know Rule of Thirds or other gas-management policies
 
 Functions should be deterministic and independently testable.
 
-## 12. Gas-Management Strategies
+## 13. Gas-Management Strategies
 
 Gas-management rules must use a strategy/policy abstraction.
 
@@ -291,7 +323,7 @@ Do not scatter Rule-of-Thirds conditionals throughout the application.
 
 A strategy receives validated planning context and returns explicit gas constraints/results.
 
-## 13. Emergency Engine
+## 14. Emergency Engine
 
 Emergency calculations are a separate module.
 
@@ -314,7 +346,7 @@ The engine should be designed so multiple failure/donor combinations can be eval
 
 Emergency logic must not be hidden inside UI or generic MUX orchestration.
 
-## 14. MUX Engine
+## 15. MUX Engine
 
 `tdm-mux` is the authoritative team-planning engine.
 
@@ -354,7 +386,7 @@ The team has one coordinated turn point even when individual turn pressures diff
 
 Results must include explanations of why the limiting constraint was reached.
 
-## 15. Determinism and Calculation Provenance
+## 16. Determinism and Calculation Provenance
 
 Given identical validated inputs and the same calculation-engine version, TDM must produce identical results.
 
@@ -368,7 +400,7 @@ Saved calculations should eventually retain provenance such as:
 
 A future engine change must not silently redefine previously saved calculations.
 
-## 16. Persistence
+## 17. Persistence
 
 PostgreSQL is the authoritative persistent datastore.
 
@@ -377,6 +409,7 @@ Use relational modeling for structured entities and relationships.
 Use database constraints where appropriate as defense in depth, while retaining primary validation in the domain/application layers.
 
 Examples:
+- Unique user email addresses
 - Positive pressures/capacities
 - Valid gas fractions
 - O2 + He <= 1.0
@@ -387,7 +420,7 @@ Database migrations are source-controlled and AI-managed.
 
 Do not use the database as the calculation engine.
 
-## 17. API
+## 18. API
 
 Axum exposes the application through a versioned REST API.
 
@@ -395,6 +428,8 @@ Initial resource areas may include:
 
 ```text
 /api/v1/divers
+/api/v1/auth
+/api/v1/users/me
 /api/v1/cylinders
 /api/v1/kits
 /api/v1/dive-plans
@@ -412,11 +447,13 @@ Calculation responses must include:
 
 The server-side Rust MUX engine is authoritative.
 
-## 18. User Interface
+## 19. User Interface
 
 Phase I uses React + TypeScript.
 
 The UI is responsible for:
+- Login/logout
+- User profile management
 - Diver selection and management
 - Kit selection and management
 - Dive-profile entry
@@ -430,7 +467,7 @@ The UI must not become an independent source of safety-critical formulas.
 
 Client-side convenience calculations are permitted only when they cannot diverge from the authoritative server calculation and are clearly non-authoritative.
 
-## 19. Future Mobile Support
+## 20. Future Mobile Support
 
 Do not design Phase I around a hypothetical mobile implementation.
 
@@ -440,11 +477,12 @@ However, preserve clean calculation boundaries so a future mobile client can:
 
 There must remain one authoritative calculation model.
 
-## 20. Testing
+## 21. Testing
 
 Every safety-critical calculation requires automated tests.
 
 Required test layers:
+- Authentication and user-profile tests
 - Unit tests for formulas and conversions
 - Domain validation tests
 - Gas-strategy tests
@@ -475,7 +513,7 @@ Known reference scenarios must have deterministic expected results.
 
 Where practical, critical formulas and scenarios should be independently cross-checked rather than testing an implementation solely against itself.
 
-## 21. Safety Rules
+## 22. Safety Rules
 
 The following are architectural invariants:
 
@@ -493,7 +531,7 @@ The following are architectural invariants:
 - Every major calculation must be independently testable.
 - A proposed dive that cannot satisfy the selected rules must produce a clear failure/warning, not a fabricated plan.
 
-## 22. Observability and Failure Behavior
+## 23. Observability and Failure Behavior
 
 Errors must be explicit and diagnosable.
 
@@ -508,7 +546,7 @@ Safety-critical failures must fail closed: do not produce apparently valid plann
 
 Logging must not expose secrets or sensitive authentication material.
 
-## 23. Security Baseline
+## 24. Security Baseline
 
 Apply standard secure-development practices from the beginning:
 - TLS in deployment
@@ -517,13 +555,15 @@ Apply standard secure-development practices from the beginning:
 - Dependency auditing
 - Input validation
 - Least-privilege database/service accounts
-- Authentication/authorization boundaries when user accounts are introduced
+- Authentication/authorization boundaries
+- Secure password hashing for Phase I username/password login
+- Passkey/WebAuthn-ready account model for future authentication
 - Secure HTTP defaults and headers
 - Reproducible builds and dependency lockfiles
 
 Security controls must not be mixed into calculation formulas.
 
-## 24. Engineering Priorities
+## 25. Engineering Priorities
 
 When architectural choices conflict, use this priority order:
 
@@ -537,7 +577,7 @@ When architectural choices conflict, use this priority order:
 
 Prefer explicit, readable implementations over clever abstractions.
 
-## 25. Initial Build Order
+## 26. Initial Build Order
 
 Recommended implementation sequence:
 
@@ -549,15 +589,16 @@ Recommended implementation sequence:
 6. Emergency model
 7. MUX engine
 8. Deterministic reference scenarios and regression suite
-9. PostgreSQL schema/persistence
-10. Axum REST API
-11. React UI
-12. Deployment packaging
-13. Reporting/export
+9. User account and Phase I authentication model
+10. PostgreSQL schema/persistence
+11. Axum REST API
+12. React UI
+13. Deployment packaging
+14. Reporting/export
 
 Do not begin by building a visually complete UI around unverified placeholder calculations.
 
-## 26. Governing Principle
+## 27. Governing Principle
 
 TDM must answer:
 

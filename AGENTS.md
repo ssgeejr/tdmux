@@ -148,13 +148,31 @@ potentially the Rust calculation core.
 Keep these concerns separate: - domain types - unit system - gas
 physics - gas-management policies - emergency calculations - MUX/team
 calculations - diver management - equipment/cylinder management -
-dive-kit management - dive-profile management - persistence - API - UI -
-reporting/export - future decompression calculations
+dive-kit management - dive-profile management - authentication/user
+accounts - persistence - API - UI - reporting/export - future
+decompression calculations
 
 Calculation engines must not depend on UI code, HTTP handlers, or
 database implementations.
 
 The UI and database are never authoritative calculation engines.
+
+## Authentication and User Accounts
+
+TDM is intended to run online and must support user accounts.
+
+Long-term authentication objective: passkeys/WebAuthn.
+
+Phase I authentication: username/password, with email address as the
+username. Passwords must never be stored in plaintext and authentication
+logic must remain separate from MUX calculation logic.
+
+User profile fields: required email, first name, and last name; optional
+preferred name and phone number; no physical address collection unless
+Steven explicitly adds that requirement.
+
+For display names, use preferred name when present and not blank;
+otherwise use first name.
 
 ## Units and Numerical Handling
 
