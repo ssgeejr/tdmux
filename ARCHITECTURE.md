@@ -2,13 +2,48 @@
 
 ## 1. Purpose
 
-This document defines the initial software architecture for Tech-Diver MUX (TDM).
+This document defines the governing architectural decisions and software design for Tech-Diver MUX (TDM).
 
 TDM is safety-critical dive-planning software. The MUX calculation engine is the core product. User interfaces, persistence, APIs, and deployment infrastructure exist around that engine and must not contain authoritative gas-planning logic.
 
 The architecture must support the product defined in `README.md` and the engineering instructions in `AGENTS.md`.
 
-## 2. Development Model
+## 2. Architectural Rules
+
+### Architectural Rule 01: Docker-Only Runtime
+
+TDM runtime services must run under Docker.
+
+This rule applies to:
+- PostgreSQL and any future persistent database
+- Rust API/backend services
+- React/web frontend services
+- Reverse proxy/web server services
+- Migration runners
+- Background workers, if introduced
+- Supporting infrastructure services, if introduced
+
+The project must not depend on a developer or server manually installing and running PostgreSQL, Caddy, the API server, the UI server, or other runtime services directly on the host operating system.
+
+Allowed host-level dependencies are limited to development and orchestration tools needed to build, test, or operate the Dockerized system, such as:
+- Docker / Docker Compose
+- Git
+- Repository tooling used by AI engineering agents
+- Local editors or inspection tools
+
+All normal application execution must be reproducible through Docker configuration committed to the repository.
+
+Architectural consequences:
+- Database configuration belongs in Docker-managed service definitions.
+- Web/API service configuration belongs in Docker-managed service definitions.
+- Migrations must be runnable from Docker-managed tooling.
+- Deployment documentation must describe Docker-based operation.
+- Local development must prefer Docker Compose or equivalent Docker orchestration.
+- Native host execution may exist only as an optional AI/developer convenience and must not be the authoritative runtime path.
+
+This rule is non-negotiable unless the product owner explicitly changes it in this document.
+
+## 3. Development Model
 
 TDM is an AI-managed software project.
 
@@ -30,7 +65,7 @@ Do not create workflows that require the product owner to edit, write, debug, sa
 
 When human input is required, ask domain, safety, product, or behavioral questions rather than coding questions.
 
-## 3. Architectural Style
+## 4. Architectural Style
 
 Use a **modular monolith**.
 
@@ -54,7 +89,7 @@ Primary boundaries:
 
 Calculation engines must not depend on UI, HTTP, or database components.
 
-## 4. Technology Stack
+## 5. Technology Stack
 
 ### Core / Backend
 - Language: **Rust**
@@ -77,13 +112,16 @@ Calculation engines must not depend on UI, HTTP, or database components.
 
 ### Deployment
 - **Linux**
-- **Docker**
+- **Docker-only runtime**
+- **Docker Compose** for local and initial server orchestration unless replaced by another Docker-native orchestrator
 - **Caddy** as TLS termination and reverse proxy
-- PostgreSQL as a separate persistent service
+- PostgreSQL as a separate Docker-managed persistent service
 
 Avoid unnecessary infrastructure such as Kubernetes, Kafka, service meshes, distributed caches, or serverless calculation functions during initial development.
 
-## 5. Repository Structure
+Any service required for the application to run must have a repository-owned Docker definition before it is considered part of the supported architecture.
+
+## 6. Repository Structure
 
 Initial target structure:
 
@@ -91,7 +129,7 @@ Initial target structure:
 tdmux/
 ├── README.md
 ├── AGENTS.md
-├── architecture.md
+├── ARCHITECTURE.md
 ├── docs/
 ├── crates/
 │   ├── tdm-domain/
@@ -105,12 +143,15 @@ tdmux/
 │   └── tdm-ui/
 ├── migrations/
 ├── tests/
-└── docker/
+├── docker/
+└── compose.yaml
 ```
 
 The exact structure may evolve, but module boundaries must remain explicit.
 
-## 6. Dependency Direction
+Docker configuration is part of the architecture, not an afterthought. It must stay source-controlled and aligned with the application, database, migration, and reverse-proxy design.
+
+## 7. Dependency Direction
 
 Dependencies flow inward toward the domain and calculation engines.
 
@@ -140,7 +181,7 @@ Forbidden:
 - HTTP handlers containing core gas-management logic
 - Calculation modules importing UI components
 
-## 7. Domain Model
+## 8. Domain Model
 
 The domain layer defines the vocabulary and safety-critical types used throughout TDM.
 
@@ -174,7 +215,7 @@ Examples:
 
 Invalid states should be difficult to construct.
 
-## 8. Units
+## 9. Units
 
 Units must always be explicit.
 
@@ -192,11 +233,13 @@ Examples:
 
 User-facing values may be displayed in PSI, cubic feet, feet, feet/minute, bar, liters, meters, etc.
 
+RMV is the canonical breathing-rate concept for calculations. SAC may be accepted as a user-facing label, import term, or onboarding aid, but it must be normalized into the explicit RMV value type before safety-critical planning logic runs. If SAC is supplied as a cylinder-pressure rate, the cylinder context must be explicit before conversion.
+
 Conversions must be centralized, deterministic, and tested.
 
 No rounding inside safety-critical calculations. Round only for presentation.
 
-## 9. Cylinder and Gas Modeling
+## 10. Cylinder and Gas Modeling
 
 TDM must compare unlike cylinder systems using gas volume, never PSI alone.
 
@@ -212,7 +255,7 @@ Do not silently infer missing cylinder specifications.
 
 Invalid, incomplete, or internally inconsistent cylinder configurations must be rejected.
 
-## 10. Gas Physics Engine
+## 11. Gas Physics Engine
 
 `tdm-physics` owns physical gas calculations and unit-safe conversions.
 
@@ -229,7 +272,7 @@ The physics engine must not know Rule of Thirds or other gas-management policies
 
 Functions should be deterministic and independently testable.
 
-## 11. Gas-Management Strategies
+## 12. Gas-Management Strategies
 
 Gas-management rules must use a strategy/policy abstraction.
 
@@ -248,7 +291,7 @@ Do not scatter Rule-of-Thirds conditionals throughout the application.
 
 A strategy receives validated planning context and returns explicit gas constraints/results.
 
-## 12. Emergency Engine
+## 13. Emergency Engine
 
 Emergency calculations are a separate module.
 
@@ -271,7 +314,7 @@ The engine should be designed so multiple failure/donor combinations can be eval
 
 Emergency logic must not be hidden inside UI or generic MUX orchestration.
 
-## 13. MUX Engine
+## 14. MUX Engine
 
 `tdm-mux` is the authoritative team-planning engine.
 
@@ -311,7 +354,7 @@ The team has one coordinated turn point even when individual turn pressures diff
 
 Results must include explanations of why the limiting constraint was reached.
 
-## 14. Determinism and Calculation Provenance
+## 15. Determinism and Calculation Provenance
 
 Given identical validated inputs and the same calculation-engine version, TDM must produce identical results.
 
@@ -325,7 +368,7 @@ Saved calculations should eventually retain provenance such as:
 
 A future engine change must not silently redefine previously saved calculations.
 
-## 15. Persistence
+## 16. Persistence
 
 PostgreSQL is the authoritative persistent datastore.
 
@@ -344,7 +387,7 @@ Database migrations are source-controlled and AI-managed.
 
 Do not use the database as the calculation engine.
 
-## 16. API
+## 17. API
 
 Axum exposes the application through a versioned REST API.
 
@@ -369,7 +412,7 @@ Calculation responses must include:
 
 The server-side Rust MUX engine is authoritative.
 
-## 17. User Interface
+## 18. User Interface
 
 Phase I uses React + TypeScript.
 
@@ -387,7 +430,7 @@ The UI must not become an independent source of safety-critical formulas.
 
 Client-side convenience calculations are permitted only when they cannot diverge from the authoritative server calculation and are clearly non-authoritative.
 
-## 18. Future Mobile Support
+## 19. Future Mobile Support
 
 Do not design Phase I around a hypothetical mobile implementation.
 
@@ -397,7 +440,7 @@ However, preserve clean calculation boundaries so a future mobile client can:
 
 There must remain one authoritative calculation model.
 
-## 19. Testing
+## 20. Testing
 
 Every safety-critical calculation requires automated tests.
 
@@ -432,13 +475,13 @@ Known reference scenarios must have deterministic expected results.
 
 Where practical, critical formulas and scenarios should be independently cross-checked rather than testing an implementation solely against itself.
 
-## 20. Safety Rules
+## 21. Safety Rules
 
 The following are architectural invariants:
 
 - Never silently guess missing values.
 - Never silently assume cylinder capacity or working pressure.
-- Never silently substitute SAC for RMV.
+- Never silently mix SAC and RMV without explicit conversion/normalization.
 - Never compare unlike cylinders using PSI alone.
 - Maintain explicit units.
 - Preserve numerical precision internally.
@@ -450,7 +493,7 @@ The following are architectural invariants:
 - Every major calculation must be independently testable.
 - A proposed dive that cannot satisfy the selected rules must produce a clear failure/warning, not a fabricated plan.
 
-## 21. Observability and Failure Behavior
+## 22. Observability and Failure Behavior
 
 Errors must be explicit and diagnosable.
 
@@ -465,7 +508,7 @@ Safety-critical failures must fail closed: do not produce apparently valid plann
 
 Logging must not expose secrets or sensitive authentication material.
 
-## 22. Security Baseline
+## 23. Security Baseline
 
 Apply standard secure-development practices from the beginning:
 - TLS in deployment
@@ -480,7 +523,7 @@ Apply standard secure-development practices from the beginning:
 
 Security controls must not be mixed into calculation formulas.
 
-## 23. Engineering Priorities
+## 24. Engineering Priorities
 
 When architectural choices conflict, use this priority order:
 
@@ -494,7 +537,7 @@ When architectural choices conflict, use this priority order:
 
 Prefer explicit, readable implementations over clever abstractions.
 
-## 24. Initial Build Order
+## 25. Initial Build Order
 
 Recommended implementation sequence:
 
@@ -514,7 +557,7 @@ Recommended implementation sequence:
 
 Do not begin by building a visually complete UI around unverified placeholder calculations.
 
-## 25. Governing Principle
+## 26. Governing Principle
 
 TDM must answer:
 

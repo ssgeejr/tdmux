@@ -12,7 +12,7 @@ rates, speeds, equipment, gas supplies, dive profile, gas-management
 strategy, and emergency assumptions into **one coordinated conservative
 team plan**.
 
-Read `README.md` and `architecture.md` before making architectural or
+Read `README.md` and `ARCHITECTURE.md` before making architectural or
 safety-critical changes.
 
 ## Operating Model
@@ -70,7 +70,7 @@ Gas calculations are safety-critical.
 Never silently guess, infer, fabricate, or substitute a missing
 safety-critical value.
 
-This includes: - SAC/RMV - cylinder capacity - cylinder working
+This includes: - RMV, including SAC-labeled user input - cylinder capacity - cylinder working
 pressure - starting pressure - gas mix - depth - distance - speed -
 ascent/descent rate - reserve rule - emergency RMV - environmental
 assumptions where material
@@ -98,8 +98,9 @@ Maintain three primary planning concepts.
 
 Persistent diver information may include: - name/identifier -
 certifications - technical-diving qualifications - cave/wreck/overhead
-qualifications - SAC/RMV - average swimming speed - units/preferences -
-future historical/calculated performance data
+qualifications - RMV, with SAC accepted as a user-facing alias where
+helpful - average swimming speed - units/preferences - future
+historical/calculated performance data
 
 Never assume divers have identical RMV or swimming speed.
 
@@ -128,7 +129,7 @@ Design this model for extension without major redesign.
 
 ## Architecture
 
-Follow `architecture.md`.
+Follow `ARCHITECTURE.md`.
 
 Current architectural direction: - Rust core/backend - Axum HTTP API -
 Tokio runtime - Serde serialization - PostgreSQL - SQLx - React +
@@ -174,7 +175,7 @@ Round only for user-facing presentation.
 Freshwater and saltwater pressure/depth behavior must be explicitly
 modeled where relevant.
 
-Never confuse SAC and RMV.
+Use RMV as the primary calculation term. SAC may be accepted as a user-facing alias or onboarding term, but calculation logic must normalize breathing-rate input to RMV before use. If SAC is supplied as a pressure rate, the cylinder context must be explicit before conversion.
 
 ## Gas Physics
 
@@ -351,7 +352,7 @@ Prefer explicit readable code over clever code.
 
 Stop and ask the product owner only when a decision genuinely requires
 diving-domain, safety-policy, or product intent that cannot be
-determined from `README.md`, `architecture.md`, tests, or existing
+determined from `README.md`, `ARCHITECTURE.md`, tests, or existing
 repository behavior.
 
 Ask one focused question when possible.

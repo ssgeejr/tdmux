@@ -22,7 +22,7 @@ Each diver maintains a reusable profile containing information such as:
 
 - Name
 - Certifications and technical-diving qualifications
-- SAC/RMV
+- RMV (with SAC accepted as a familiar input term)
 - Average fin/swimming speed
 - Preferred units
 - Other performance information used by the planning engine
@@ -243,6 +243,10 @@ TDM should explain **why** a particular diver became the limiting member of the 
 
 All calculations must use explicit units and actual gas volume.
 
+TDM uses **RMV (Respiratory Minute Volume)** as the primary breathing-rate term for technical-diving calculations.
+
+Because many newer technical divers learn **SAC (Surface Air Consumption)** first, the application may accept SAC as a user-facing input label or alias. If SAC is entered as a pressure rate, the cylinder context must be known so TDM can convert it to actual gas volume. Internally, breathing-rate calculations should normalize to RMV before planning.
+
 Gas consumption at depth must account for ambient pressure.
 
 Conceptually:
@@ -275,7 +279,7 @@ Development principles include:
 - Never silently guess missing values.
 - Never silently assume cylinder specifications.
 - Never compare unlike cylinders using PSI alone.
-- Never silently substitute SAC for RMV.
+- Never silently mix SAC and RMV without explicit conversion/normalization.
 - Validate inputs aggressively.
 - Reject impossible configurations.
 - Make assumptions visible.
